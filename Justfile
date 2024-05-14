@@ -22,7 +22,7 @@ install:
     cargo install --path .
 
 test *args:
-    cargo test --all-features {{args}}
+    cargo test --features async-openai --features dhat-heap {{args}}
 alias t := test
 
 bench *args:
