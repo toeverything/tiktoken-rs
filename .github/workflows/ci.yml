@@ -22,7 +22,6 @@ jobs:
           - target: x86_64-unknown-linux-gnu
           - os: macos-latest
             target: aarch64-apple-darwin
-            just_goals: build
           - os: macos-latest
             target: x86_64-apple-darwin
           - os: windows-latest
@@ -36,12 +35,10 @@ jobs:
           submodules: recursive
 
       - name: Install rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          target: ${{ matrix.target }}
-          toolchain: nightly
-          profile: minimal
-          override: true
+          targets: ${{ matrix.target }}
+          toolchain: stable
 
       - uses: Swatinem/rust-cache@v2
 
@@ -49,7 +46,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: just ${{ matrix.just_goals || 'build test' }}
+      - run: just build test --target ${{ matrix.target }}
 
   lint:
     runs-on: ubuntu-latest
@@ -59,10 +56,9 @@ jobs:
           submodules: recursive
 
       - name: Install rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly
-          override: true
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
@@ -76,11 +72,13 @@ jobs:
   ci-everything:
     name: All CI stages
     runs-on: ubuntu-latest
+    if: always()
     needs:
       - just
       - lint
     steps:
-      - run: exit 0
+      - run: exit 1
+        if: ${{ always() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
 
   init-release:
     name: Run the release workflow

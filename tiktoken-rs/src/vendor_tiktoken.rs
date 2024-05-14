@@ -694,12 +694,20 @@ impl CoreBPE {
         &self,
         py: Python,
         text: &str,
-        allowed_special: HashSet<&str>,
+        allowed_special: HashSet<String>,
     ) -> Py<PyTuple> {
-        let (tokens, completions) =
-            py.allow_threads(|| self._encode_unstable_native(text, &allowed_special));
-        let py_completions =
-            PyList::new(py, completions.iter().map(|seq| PyList::new(py, &seq[..])));
+        let (tokens, completions) = py.allow_threads(|| {
+            self._encode_unstable_native(
+                text,
+                &HashSet::from_iter(allowed_special.iter().map(|x| x.as_str())),
+            )
+        });
+        let py_completions = PyList::new_bound(
+            py,
+            completions
+                .iter()
+                .map(|seq| PyList::new_bound(py, &seq[..])),
+        );
         (tokens, py_completions).into_py(py)
     }
 
@@ -728,15 +736,15 @@ impl CoreBPE {
 
     pub fn decode_bytes(&self, py: Python, tokens: Vec<usize>) -> Py<PyBytes> {
         let bytes = py.allow_threads(|| self._decode_native(&tokens));
-        PyBytes::new(py, &bytes).into()
+        PyBytes::new_bound(py, &bytes).into()
     }
 
     pub fn decode_single_token_bytes(&self, py: Python, token: usize) -> PyResult<Py<PyBytes>> {
         if let Some(bytes) = self.decoder.get(&token) {
-            return Ok(PyBytes::new(py, bytes).into());
+            return Ok(PyBytes::new_bound(py, bytes).into());
         }
         if let Some(bytes) = self.special_tokens_decoder.get(&token) {
-            return Ok(PyBytes::new(py, bytes).into());
+            return Ok(PyBytes::new_bound(py, bytes).into());
         }
         Err(PyErr::new::<exceptions::PyKeyError, _>(token.to_string()))
     }
@@ -748,14 +756,14 @@ impl CoreBPE {
     pub fn token_byte_values(&self, py: Python) -> Vec<Py<PyBytes>> {
         self.sorted_token_bytes
             .iter()
-            .map(|x| PyBytes::new(py, x).into())
+            .map(|x| PyBytes::new_bound(py, x).into())
             .collect()
     }
 }
 
 #[cfg(feature = "python")]
 #[pymodule]
-fn _tiktoken(_py: Python, m: &PyModule) -> PyResult<()> {
+fn _tiktoken(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<CoreBPE>()?;
     Ok(())
 }
